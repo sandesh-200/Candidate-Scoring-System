@@ -443,13 +443,3 @@ If I had more time to extend this project, I'd look at:
 
 ---
 
-## 📤 Final Push
-
-```bash
-git init
-git add .
-git commit -m "final submission: TechKraft Candidate Scoring System"
-git branch -M main
-git remote add origin <your-repo-url>
-git push -u origin main
-```
