@@ -1,19 +1,25 @@
 import time
+import asyncio
 
-from datetime import datetime,UTC
+from datetime import datetime, UTC
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
-    Query
+    Query,
+    Request
 )
+
+from fastapi.responses import StreamingResponse
 
 from sqlalchemy.orm import Session
 
 from ..dependencies import get_db
 
 from ..services.candidate_ai_service import generate_ai_summary
+
+from ..sse_manager import sse_manager
 
 from ..models import Candidate, Score
 
@@ -190,6 +196,19 @@ def add_score(
 
     db.refresh(score)
 
+    # Publish SSE event for real-time listeners
+    sse_manager.publish(candidate_id, {
+        "event": "score_added",
+        "score": {
+            "id": score.id,
+            "category": score.category,
+            "score": score.score,
+            "note": score.note,
+            "reviewer_id": score.reviewer_id,
+            "created_at": score.created_at.isoformat(),
+        }
+    })
+
     return score
 
 
@@ -219,6 +238,64 @@ def generate_summary(
         "message": "Summary generated",
         "summary": summary
     }
+
+
+# ======================================
+# SSE STREAM – REAL-TIME SCORE UPDATES
+# ======================================
+
+
+@router.get("/{candidate_id}/stream")
+async def stream_scores(
+    candidate_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """SSE endpoint that streams score updates for a candidate in real time."""
+
+    # Verify candidate exists
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id,
+        Candidate.deleted_at.is_(None)
+    ).first()
+
+    if not candidate:
+        raise HTTPException(
+            status_code=404,
+            detail="Candidate not found"
+        )
+
+    async def event_generator():
+        queue = sse_manager.subscribe(candidate_id)
+        try:
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    break
+
+                try:
+                    # Wait for a message with a timeout so we can
+                    # periodically check for disconnection and send
+                    # keep-alive pings.
+                    message = await asyncio.wait_for(
+                        queue.get(), timeout=30.0
+                    )
+                    yield f"data: {message}\n\n"
+                except asyncio.TimeoutError:
+                    # Send a keep-alive comment to prevent connection timeout
+                    yield ": keep-alive\n\n"
+        finally:
+            sse_manager.unsubscribe(candidate_id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ======================================
