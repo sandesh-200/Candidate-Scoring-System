@@ -1,0 +1,39 @@
+## Secrets / env files
+.env
+.env.*
+!.env.example
+backend/.env
+
+## Python (backend)
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+.venv/
+venv/
+
+## Databases / local state
+*.db
+*.sqlite
+*.sqlite3
+backend/app.db
+
+## Node (frontend)
+node_modules/
+dist/
+.parcel-cache/
+.vite/
+
+## Logs
+*.log
+logs/
+
+## OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
