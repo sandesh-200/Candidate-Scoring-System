@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 import { useParams } from "react-router-dom";
 import { Link } from "react-router-dom";
@@ -9,6 +9,7 @@ import {
   generateSummaryApi,
 } from "../api/candidateApi";
 import MarkdownRenderer from "../components/MarkdownRenderer";
+import useScoreStream from "../hooks/useScoreStream";
 
 function CandidateDetailPage() {
   const { id } = useParams();
@@ -27,6 +28,22 @@ function CandidateDetailPage() {
   useEffect(() => {
     fetchCandidate();
   }, []);
+
+  // SSE: real-time score updates
+  const handleScoreFromStream = useCallback((score) => {
+    setCandidate((prev) => {
+      if (!prev) return prev;
+      // Avoid duplicates (e.g. if the submitter is also the listener)
+      const exists = (prev.scores ?? []).some((s) => s.id === score.id);
+      if (exists) return prev;
+      return {
+        ...prev,
+        scores: [...(prev.scores ?? []), score],
+      };
+    });
+  }, []);
+
+  useScoreStream(id, handleScoreFromStream);
 
   const fetchCandidate = async () => {
     try {

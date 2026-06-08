@@ -22,6 +22,15 @@ A full-stack internal tool for HR teams to manage job candidates, score them acr
 
 ## 🚀 Setup Instructions
 
+> [!WARNING]
+> ### 🔑 Required Environment Configuration
+> This system uses **Google Gemini** as its summary generator LLM.
+> To run the AI features, you **MUST** create a `.env` file in the `backend/` directory and add your Gemini API Key:
+> ```env
+> GEMINI_API_KEY=your_gemini_api_key_here
+> ```
+> *Without this key, clicking "Generate Summary" will return an error.*
+
 ### Option A — Run Locally (Manual)
 
 **1. Clone the repository**
@@ -202,6 +211,16 @@ This sets `deleted_at` on the record — the candidate is archived, not permanen
 
 ---
 
+### Stream score updates in real-time (SSE)
+
+```bash
+curl -N http://127.0.0.1:8000/candidates/1/stream
+```
+
+Establishes a persistent Server-Sent Events (SSE) connection to stream new score updates for candidate `1` to all connected clients in real-time.
+
+---
+
 ## 🏗 System Design
 
 ```
@@ -218,6 +237,7 @@ This sets `deleted_at` on the record — the candidate is archived, not permanen
 │   /candidates    — CRUD, search, filter, paginate       │
 │   /candidates/:id/scores   — score submission           │
 │   /candidates/:id/summary  — AI summary (Gemini)        │
+│   /candidates/:id/stream   — Real-time score stream (SSE)│
 │                                                         │
 │   Auth Layer: OAuth2PasswordBearer + JWT                │
 │   Role Guard: admin / reviewer                          │
@@ -358,7 +378,6 @@ If I had more time to extend this project, I'd look at:
 
 - **Redis caching** for the candidate list — results could be cached per filter combination and invalidated on write
 - **Background tasks** for the AI summary — run LLM generation in the background (FastAPI `BackgroundTasks` / Celery) to avoid blocking requests
-- **WebSocket updates** so the frontend reflects new scores in real time without polling
 - **Token refresh flow** to handle the JWT revocation limitation cleanly
 - **PostgreSQL** as a drop-in replacement once the data volume grows
 
@@ -373,6 +392,7 @@ If I had more time to extend this project, I'd look at:
 | Candidate Filtering | Filter by status, role, skill, or keyword via query params |
 | Pagination | DB-level `LIMIT`/`OFFSET` with `page` and `page_size` params |
 | Score Submission | Reviewers submit scores (1–5) per category with optional notes |
+| Real-time Updates | Streams score updates via SSE (`/stream`) to connected details page in real time |
 | AI Summary Generator | Gemini-generated summary (stored on the candidate record) |
 | Soft Delete | Candidates are archived (`deleted_at` set), not permanently removed |
 | React Dashboard | Login, candidate list, filters, pagination, detail view, score form |
@@ -389,6 +409,7 @@ If I had more time to extend this project, I'd look at:
 - [x] Candidate detail with role-filtered scores
 - [x] Score submission (1–5 validation enforced)
 - [x] AI summary generator (Gemini, stored to DB)
+- [x] Real-time score streaming via Server-Sent Events (SSE)
 - [x] Soft delete via `deleted_at`
 - [x] Service layer handles all search/filter logic
 - [x] Seed script creates users and sample candidates
@@ -399,6 +420,7 @@ If I had more time to extend this project, I'd look at:
 - [x] Filters (status, role, skill, keyword) work
 - [x] Pagination (next/prev) works
 - [x] Candidate detail page loads scores and notes
+- [x] Real-time SSE listener updates scores instantly
 - [x] Add Score form submits and refreshes
 - [x] Generate Summary button with loading state
 - [x] API functions properly exported from `candidateApi.js`
